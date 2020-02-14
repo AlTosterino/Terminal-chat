@@ -13,11 +13,11 @@ SYSTEM = os.name
 # Colorama module init
 init()
 
-parser = argparse.ArgumentParser(description='Simple terminal chat')
-parser.add_argument('host', type=str, nargs='?', help='Address of host, default: localhost:5000', default='localhost:5000')
+PARSER = argparse.ArgumentParser(description='Simple terminal chat')
+PARSER.add_argument('host', type=str, nargs='?', help='Address of host, default: localhost:5000', default='localhost:5000')
 
-sio = socketio.AsyncClient()
-loop = asyncio.get_event_loop()
+SIO = socketio.AsyncClient()
+LOOP = asyncio.get_event_loop()
 
 
 # * Sync functions
@@ -32,7 +32,7 @@ def user_input_style() -> str:
     return f'{Style.BRIGHT}{Fore.GREEN}'
 
 def exit_application() -> None:
-    loop.call_soon_threadsafe(loop.stop)
+    LOOP.call_soon_threadsafe(LOOP.stop)
     os._exit(0)
 
 def clear_screen() -> None:
@@ -55,27 +55,36 @@ def show_user_input() -> None:
 
 # * Async functions
 
-@sio.event
+@SIO.event
 async def connect():
     # Stop displaying tryin to connect message
     trying_message_process.terminate()
     clear_screen()
     print_reset(f'{Fore.GREEN}Connected!')
 
-@sio.event
+@SIO.event
 async def connect_error():
     # Stop displaying tryin to connect message
     trying_message_process.terminate()
     print_reset(f'{danger_style()}The connection failed!')
 
-@sio.event
+@SIO.event
 async def disconnect():
     print_reset(f'{danger_style()}Disconnected!')
         
 
+@SIO.event
+async def message(data) -> None:
+    reset_styles()
+    print(f'\r{Style.BRIGHT}{Fore.CYAN}Someone: {Style.RESET_ALL}{data}')
+    show_user_input()
+
+async def send_message(message: str) -> None:
+    await SIO.emit('message', message)
+
 async def connect_to_server():
     try:
-        await sio.connect('http://localhost:5000')
+        await SIO.connect('http://localhost:5000')
     except socketio.exceptions.ConnectionError:
         # Stop displaying tryin to connect message
         trying_message_process.terminate()
@@ -83,26 +92,17 @@ async def connect_to_server():
         exit_application()
 
     try:
-        await sio.wait()
+        await SIO.wait()
     except AttributeError:
         print_reset(f'{danger_style()}\nDisconnecting... [ServerWasClosedUnexpected]')
         exit_application()
 
-@sio.event
-async def message(data) -> None:
-    reset_styles()
-    print(f'\r{Style.BRIGHT}{Fore.CYAN}Someone: {Style.RESET_ALL}{data}')
-    show_user_input()
-
-async def send_message(message: str) -> None:
-    await sio.emit('message', message)
-
 if __name__ == '__main__':
-    args = parser.parse_args()
+    args = PARSER.parse_args()
     trying_message_process = Process(target=trying_message)
     trying_message_process.start()
     # Connect to server on separate thread, so user can use terminal
-    t = Thread(target=lambda: loop.run_until_complete(connect_to_server()))
+    t = Thread(target=lambda: LOOP.run_until_complete(connect_to_server()))
     t.start()
     # Main loop
     while True:
@@ -112,7 +112,7 @@ if __name__ == '__main__':
             show_user_input()
             try:
                 user_message = input()
-                asyncio.run_coroutine_threadsafe(send_message(user_message), loop)
+                asyncio.run_coroutine_threadsafe(send_message(user_message), LOOP)
             except KeyboardInterrupt:
                 print_reset(f'{danger_style()}\nDisconnecting...')
                 exit_application()
