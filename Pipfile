@@ -13,6 +13,7 @@ eventlet = "*"
 requests = "*"
 aiohttp = "*"
 colorama = "*"
+black = "*"
 
 [requires]
 python_version = "3.8"
