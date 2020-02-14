@@ -2,60 +2,117 @@ import asyncio
 import socketio
 import sys
 import os
+import argparse
 from colorama import init, Fore, Style
 from time import sleep
 from threading import Thread
+from multiprocessing import Process
 
+SYSTEM = os.name
+
+# Colorama module init
 init()
+
+parser = argparse.ArgumentParser(description='Simple terminal chat')
+parser.add_argument('host', type=str, nargs='?', help='Address of host, default: localhost:5000', default='localhost:5000')
 
 sio = socketio.AsyncClient()
 loop = asyncio.get_event_loop()
 
+
+# * Sync functions
+
+def reset_styles() -> None:
+    print(Style.RESET_ALL, end='')
+
+def danger_style() -> str:
+    return f'{Style.BRIGHT}{Fore.RED}'
+
+def user_input_style() -> str:
+    return f'{Style.BRIGHT}{Fore.GREEN}'
+
+def exit_application() -> None:
+    loop.call_soon_threadsafe(loop.stop)
+    os._exit(0)
+
+def clear_screen() -> None:
+    os.system('cls' if SYSTEM == 'nt' else 'clear')
+
+def trying_message() -> None:
+    temp = 'Trying to connect'
+    count = 0
+    while True:
+        print(temp + '.'*count, end='\r')
+        count += 1
+        sleep(0.1)
+
+def print_reset(text: str, end='\n') -> None:
+    """print implementation with Style.RESET_ALL"""
+    print(f'{text}{Style.RESET_ALL}', end=end)
+
+def show_user_input() -> None:
+    print_reset(f'{user_input_style()}You: ', end='')
+
+# * Async functions
+
 @sio.event
 async def connect():
-    print("I'm connected!")
+    # Stop displaying tryin to connect message
+    trying_message_process.terminate()
+    clear_screen()
+    print_reset(f'{Fore.GREEN}Connected!')
 
 @sio.event
 async def connect_error():
-    print("The connection failed!")
+    # Stop displaying tryin to connect message
+    trying_message_process.terminate()
+    print_reset(f'{danger_style()}The connection failed!')
 
 @sio.event
 async def disconnect():
-    print("I'm disconnected!")
-
-def exit():
-    loop.call_soon_threadsafe(loop.stop)
-    os._exit(0)
+    print_reset(f'{danger_style()}Disconnected!')
+        
 
 async def connect_to_server():
     try:
         await sio.connect('http://localhost:5000')
     except socketio.exceptions.ConnectionError:
-        print('Disconnecting...')
-        exit()
+        # Stop displaying tryin to connect message
+        trying_message_process.terminate()
+        print_reset(f'{danger_style()}\nDisconnecting... [ConnectionError]')
+        exit_application()
+
     try:
         await sio.wait()
     except AttributeError:
-        print('Disconnecting...')
-        exit()
+        print_reset(f'{danger_style()}\nDisconnecting... [ServerWasClosedUnexpected]')
+        exit_application()
 
 @sio.event
-async def message(data):
-    print(Style.RESET_ALL, end='')
-    print('\r' + Fore.RED + 'Someone: ' + Style.RESET_ALL + data)
-    print(Fore.GREEN + 'You: ' + Style.RESET_ALL, end='')
+async def message(data) -> None:
+    reset_styles()
+    print(f'\r{Style.BRIGHT}{Fore.CYAN}Someone: {Style.RESET_ALL}{data}')
+    show_user_input()
 
-async def emit(temp):
-    await sio.emit('message', temp)
+async def send_message(message: str) -> None:
+    await sio.emit('message', message)
 
 if __name__ == '__main__':
+    args = parser.parse_args()
+    trying_message_process = Process(target=trying_message)
+    trying_message_process.start()
+    # Connect to server on separate thread, so user can use terminal
     t = Thread(target=lambda: loop.run_until_complete(connect_to_server()))
     t.start()
-    sleep(1)
+    # Main loop
     while True:
-        try:
-            x = input(Fore.GREEN + 'You: ' + Style.RESET_ALL)
-            asyncio.run_coroutine_threadsafe(emit(x), loop)
-        except KeyboardInterrupt:
-            print('Disconnecting...')
-            exit()
+        if not trying_message_process.is_alive():
+            # Show user input after screen is clear and connected message shown
+            sleep(0.1)
+            show_user_input()
+            try:
+                user_message = input()
+                asyncio.run_coroutine_threadsafe(send_message(user_message), loop)
+            except KeyboardInterrupt:
+                print_reset(f'{danger_style()}\nDisconnecting...')
+                exit_application()
