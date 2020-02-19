@@ -83,12 +83,12 @@ async def connect():
 async def connect_error():
     # Stop displaying tryin to connect message
     trying_message_process.terminate()
-    print_reset(f"{danger_style()}The connection failed!")
+    print_reset(f"{danger_style()} The connection failed!")
 
 
 @SIO.event
 async def disconnect():
-    print_reset(f"{danger_style()}Disconnected!")
+    print_reset(f"{danger_style()} Disconnected!")
 
 
 @SIO.event
@@ -133,7 +133,11 @@ if __name__ == "__main__":
             show_user_input()
             try:
                 user_message = input()
-                asyncio.run_coroutine_threadsafe(send_message(user_message), LOOP)
+                if user_message:
+                    asyncio.run_coroutine_threadsafe(send_message(user_message), LOOP)
+                else:
+                    # ANSI Escape
+                    print('\033[A', end='')
             except KeyboardInterrupt:
                 print_reset(f"{danger_style()}\nDisconnecting...")
                 exit_application()
