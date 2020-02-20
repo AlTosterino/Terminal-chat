@@ -112,9 +112,9 @@ async def is_username_avaiable(username: str) -> None:
     await SIO.emit('is_username_avaiable', username, callback=set_user_username)
 
 
-async def connect_to_server():
+async def connect_to_server(host: str):
     try:
-        await SIO.connect("http://localhost:5000")
+        await SIO.connect(f'http://{host}')
     except socketio.exceptions.ConnectionError:
         # Stop displaying tryin to connect message
         trying_message_process.terminate()
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     trying_message_process = Process(target=trying_message)
     trying_message_process.start()
     # Connect to server on separate thread, so user can use terminal
-    t = Thread(target=lambda: LOOP.run_until_complete(connect_to_server()))
+    t = Thread(target=lambda: LOOP.run_until_complete(connect_to_server(args.host)))
     t.start()
     # Get username
     try:
