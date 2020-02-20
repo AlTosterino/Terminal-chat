@@ -24,6 +24,7 @@ PARSER.add_argument(
 
 SIO = socketio.AsyncClient()
 LOOP = asyncio.get_event_loop()
+USERNAME = None
 
 
 # * Sync functions
@@ -64,8 +65,15 @@ def print_reset(text: str, end="\n") -> None:
     print(f"{text}{Style.RESET_ALL}", end=end)
 
 
-def show_user_input() -> None:
-    print_reset(f"{user_input_style()}You: ", end="")
+def show_user_input(username: str) -> None:
+    print_reset(f"{user_input_style()}{username}: ", end="")
+
+def set_user_username(*args) -> None:
+    if args:
+        global USERNAME
+        USERNAME = args[0]
+    else:
+        print_reset(f'{danger_style()}Username already taken')
 
 
 # * Async functions
@@ -94,12 +102,14 @@ async def disconnect():
 @SIO.event
 async def message(data) -> None:
     reset_styles()
-    print(f"\r{Style.BRIGHT}{Fore.CYAN}Someone: {Style.RESET_ALL}{data}")
-    show_user_input()
-
+    print(f"\r{Style.BRIGHT}{Fore.CYAN}{data.get('username')}: {Style.RESET_ALL}{data.get('message')}")
+    show_user_input(USERNAME)
 
 async def send_message(message: str) -> None:
     await SIO.emit("message", message)
+
+async def is_username_avaiable(username: str) -> None:
+    await SIO.emit('is_username_avaiable', username, callback=set_user_username)
 
 
 async def connect_to_server():
@@ -125,19 +135,29 @@ if __name__ == "__main__":
     # Connect to server on separate thread, so user can use terminal
     t = Thread(target=lambda: LOOP.run_until_complete(connect_to_server()))
     t.start()
-    # Main loop
-    while True:
-        if not trying_message_process.is_alive():
+    # Get username
+    try:
+        while True:
+            sleep(0.1)
+            if not trying_message_process.is_alive():
+                if not USERNAME:
+                    show_user_input('Pick Your username')
+                    new_username = input()
+                    if new_username:
+                        asyncio.run_coroutine_threadsafe(is_username_avaiable(new_username), LOOP)
+                else:
+                    break
+        # Main loop
+        while True:
             # Show user input after screen is clear and connected message shown
             sleep(0.1)
-            show_user_input()
-            try:
-                user_message = input()
-                if user_message:
-                    asyncio.run_coroutine_threadsafe(send_message(user_message), LOOP)
-                else:
-                    # ANSI Escape
-                    print('\033[A', end='')
-            except KeyboardInterrupt:
-                print_reset(f"{danger_style()}\nDisconnecting...")
-                exit_application()
+            show_user_input(USERNAME)
+            user_message = input()
+            if user_message:
+                asyncio.run_coroutine_threadsafe(send_message(user_message), LOOP)
+            else:
+                # ANSI Escape
+                print('\033[A', end='')
+    except KeyboardInterrupt:
+        print_reset(f"{danger_style()}\nDisconnecting...")
+        exit_application()
