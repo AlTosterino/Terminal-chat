@@ -145,6 +145,9 @@ if __name__ == "__main__":
                     new_username = input()
                     if new_username:
                         asyncio.run_coroutine_threadsafe(is_username_avaiable(new_username), LOOP)
+                    else:
+                        # ANSI Escape
+                        print('\033[A', end='')
                 else:
                     break
         # Main loop
