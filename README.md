@@ -11,6 +11,7 @@ This script and virtual environment uses [Python 3.8.1](https://www.python.org/d
 ### Prerequisites
 - [Pipenv](https://pipenv-fork.readthedocs.io/en/latest/) -> `pip install pipenv`
 ### Running
+> Before running, install dependencies from Pipfile -> `pipenv install`
 #### Server
 > Server default host is localhost:5000
 
