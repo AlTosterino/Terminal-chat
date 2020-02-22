@@ -1,23 +1,42 @@
 import socketio
+import argparse
 from aiohttp import web
 
-sio = socketio.AsyncServer(async_mode='aiohttp')
-app = web.Application()
-sio.attach(app)
+
+PARSER = argparse.ArgumentParser(description="Simple terminal chat server")
+PARSER.add_argument(
+    "host",
+    type=str,
+    nargs="?",
+    help="Address of host, default: localhost",
+    default="localhost",
+)
+
+PARSER.add_argument(
+    "port",
+    type=int,
+    nargs="?",
+    help="Host port, default: 5000",
+    default=5000,
+)
+
+SIO = socketio.AsyncServer(async_mode='aiohttp', cors_allowed_origins='*')
+APP = web.Application()
+SIO.attach(APP)
 
 USERNAMES = {}
 
-@sio.event
+@SIO.event
 async def connect(sid, environ):
-    print('connect ', sid)
+    print('Connect ', sid)
 
-@sio.event
+@SIO.event
 async def disconnect(sid):
     global USERNAMES
     USERNAMES.pop(sid, None)
-    print('disconnect ', sid)
+    print('Disconnect ', sid)
 
-@sio.event
+@SIO.event
 async def is_username_avaiable(sid, data):
     global USERNAMES
     username = USERNAMES.get(sid)
@@ -28,13 +47,13 @@ async def is_username_avaiable(sid, data):
         USERNAMES.setdefault(sid, data)
     else:
         return username
-    print(USERNAMES)
     return USERNAMES.get(sid)
 
-@sio.event
+@SIO.event
 async def message(sid, data):
     print('GOT MESSAGE')
-    await sio.emit('message', {'username': USERNAMES.get(sid), 'message': data}, skip_sid=sid)
+    await SIO.emit('message', {'username': USERNAMES.get(sid), 'message': data}, skip_sid=sid)
 
 if __name__ == '__main__':
-    web.run_app(app, host='0.0.0.0', port=5000)
+    args = PARSER.parse_args()
+    web.run_app(APP, host=args.host, port=args.port)

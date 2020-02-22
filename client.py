@@ -13,7 +13,7 @@ SYSTEM = os.name
 # Colorama module init
 init()
 
-PARSER = argparse.ArgumentParser(description="Simple terminal chat")
+PARSER = argparse.ArgumentParser(description="Simple terminal chat client")
 PARSER.add_argument(
     "host",
     type=str,
@@ -149,6 +149,7 @@ if __name__ == "__main__":
                         # ANSI Escape
                         print('\033[A', end='')
                 else:
+                    clear_screen()
                     break
         # Main loop
         while True:
